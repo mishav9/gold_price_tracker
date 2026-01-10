@@ -1,0 +1,38 @@
+
+[theme]
+primaryColor = "#FFD700"
+backgroundColor = "#0E1117"
+secondaryBackgroundColor = "#262730"
+textColor = "#FAFAFA"
+font = "sans serif"
+
+[server]
+headless = true
+port = 8501
+enableCORS = false
+enableXsrfProtection = true
+```
+
+---
+
+### 1.6 `.gitignore`
+```
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+*.so
+*.egg
+*.egg-info/
+dist/
+build/
+.venv/
+venv/
+ENV/
+env/
+.env
+.DS_Store
+*.log
+.vscode/
+.idea/
