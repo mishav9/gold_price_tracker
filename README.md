@@ -1,32 +1,31 @@
 name: Update Gold Prices
 
 on:
-  schedule:
-    # Run every 6 hours at :00 (00:00, 06:00, 12:00, 18:00 UTC)
-    - cron: '0 */6 * * *'
-  
-  workflow_dispatch:  # Allow manual trigger
-  
-  push:
-    branches:
-      - main
-    paths:
-      - 'run_update.py'
-      - 'price_checker.py'
+schedule:
+# Run every 6 hours at :00 (00:00, 06:00, 12:00, 18:00 UTC)
+- cron: '0 */6 * * *'
+
+workflow_dispatch:  # Allow manual trigger
+
+push:
+branches:
+- main
+paths:
+- 'price_checker.py'
 
 jobs:
-  update-prices:
-    runs-on: ubuntu-latest
-    
+update-prices:
+runs-on: ubuntu-latest
+
     steps:
       - name: Checkout repository
         uses: actions/checkout@v3
-
+      
       - name: Set up Python
         uses: actions/setup-python@v4
         with:
           python-version: '3.10'
-
+      
       - name: Cache dependencies
         uses: actions/cache@v3
         with:
@@ -34,16 +33,16 @@ jobs:
           key: ${{ runner.os }}-pip-${{ hashFiles('requirements.txt') }}
           restore-keys: |
             ${{ runner.os }}-pip-
-
+      
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements.txt
-
+      
       - name: Run price update
         run: |
-          python run_update.py
-
+          python price_checker.py
+      
       - name: Commit and push if changed
         run: |
           git config --local user.email "github-actions[bot]@users.noreply.github.com"
@@ -57,7 +56,7 @@ jobs:
             git commit -m "Update gold prices - $(date -u +'%Y-%m-%d %H:%M:%S UTC')"
             git push
           fi
-
+      
       - name: Upload database artifact
         uses: actions/upload-artifact@v3
         if: always()
