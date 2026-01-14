@@ -108,10 +108,48 @@ class GoldPriceTrackerFixed:
         finally:
             conn.close()
 
+    def get_moving_average(self, days=7):
+        conn = sqlite3.connect(self.db_path)
+        cursor = conn.cursor()
+        try:
+            # Calculate average for the last 7 days for '22K' and 'Hyderabad'
+            cursor.execute('''
+                SELECT AVG(price_per_10g) 
+                FROM gold_prices 
+                WHERE karat = '22K' 
+                AND city = 'Hyderabad' 
+                AND date >= date('now', ?)
+            ''', (f'-{days} days',))
+            result = cursor.fetchone()
+            return result[0] if result and result[0] else None
+        except Exception as e:
+            print(f"Error calculating moving average: {e}")
+            return None
+        finally:
+            conn.close()
+
+    def send_notification(self, current_price, avg_price):
+        try:
+            drop_percentage = ((avg_price - current_price) / avg_price) * 100
+            if drop_percentage >= 1.0:
+                message = f"🚨 Gold Price Drop Alert!\n\nCurrent: ₹{current_price:,.2f}\n7-Day Avg: ₹{avg_price:,.2f}\nDrop: {drop_percentage:.2f}%"
+                requests.post("https://ntfy.sh/gold_price_hyderabad_avinash", 
+                            data=message.encode('utf-8'),
+                            headers={"Title": "Gold Price Alert", "Priority": "high"})
+                print(f"✓ Notification sent: {drop_percentage:.2f}% drop")
+        except Exception as e:
+            print(f"Error sending notification: {e}")
+
     def update_price(self):
         price = self.fetch_gold_price()
         if price:
             self.save_price(price)
+            
+            # Check for price drop
+            avg_price = self.get_moving_average()
+            if avg_price and price < avg_price:
+                self.send_notification(price, avg_price)
+                
             return price
         return None
 
