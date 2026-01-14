@@ -12,7 +12,7 @@ st.set_page_config(
 )
 
 # Load data
-@st.cache_data(ttl=3600)
+@st.cache_data(ttl=60)
 def load_data():
     conn = sqlite3.connect('gold_prices.db')
     query = '''
