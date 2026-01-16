@@ -30,56 +30,86 @@ class GoldPriceTrackerFixed:
 
     def fetch_gold_price(self):
         """
-        Fetch actual retail price from BankBazaar (fallback to other sources if needed)
+        Fetch actual retail price from GoodReturns (Primary) or BankBazaar (Backup)
         """
+        # 1. Try GoodReturns (More reliable/frequent updates)
+        price = self.fetch_goodreturns()
+        if price:
+            return price
+            
+        print("GoodReturns failed, trying BankBazaar...")
+        
+        # 2. Try BankBazaar (Fallback)
+        price = self.fetch_bankbazaar()
+        if price:
+            return price
+
+        print("All sources failed")
+        return self._fallback_price()
+
+    def fetch_goodreturns(self):
         try:
-            # BankBazaar Hyderabad Gold Rate
+            url = "https://www.goodreturns.in/gold-rates/hyderabad.html"
+            headers = {
+                'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+                'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8',
+            }
+            response = requests.get(url, headers=headers, timeout=10)
+            if response.status_code != 200:
+                print(f"GoodReturns returned {response.status_code}")
+                return None
+            
+            soup = BeautifulSoup(response.content, 'html.parser')
+            
+            # Look for 22 Carat Gold section (containing H2 with "22 Carat" and "Hyderabad")
+            for section in soup.find_all('section'):
+                h2 = section.find('h2')
+                if h2 and "22 Carat" in h2.get_text() and "Hyderabad" in h2.get_text():
+                    table = section.find('table')
+                    if table:
+                        for row in table.find_all('tr'):
+                            cells = row.find_all('td')
+                            # Check for 10 grams row (first cell is '10')
+                            if len(cells) >= 2 and cells[0].get_text().strip() == '10':
+                                price_text = cells[1].get_text()
+                                return self._clean_price(price_text)
+            return None
+        except Exception as e:
+            print(f"Error fetching GoodReturns: {e}")
+            return None
+
+    def fetch_bankbazaar(self):
+        try:
             url = "https://www.bankbazaar.com/gold-rate-hyderabad.html"
             headers = {
                 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
             }
-
             response = requests.get(url, headers=headers, timeout=10)
             soup = BeautifulSoup(response.content, 'html.parser')
-
-            # Find the table containing gold rates
-            # BankBazaar usually has a table with "10 grams" and the price
-            rows = soup.find_all('tr')
             
+            rows = soup.find_all('tr')
             for row in rows:
                 cells = row.find_all('td')
                 if len(cells) >= 2:
-                    # Check if row is for 10 grams (standard gold 22K often listed)
                     row_text = row.get_text()
-                    if '10 grams' in row_text and '1 gram' not in row_text: # weak check but let's be more specific with cells
-                         
+                    if '10 grams' in row_text and '1 gram' not in row_text:
                          first_cell = cells[0].get_text().strip()
                          if '10 grams' in first_cell:
-                             # The second cell usually has the price for Today
                              price_cell = cells[1].get_text().strip()
-                             
-                             # Extract digits
-                             # Format is often "₹ 1,32,800"
-                             price_str = price_cell.replace('₹', '').replace(',', '').strip()
-                             
-                             # Handle cases where there might be extra text like price change "(+100)"
-                             # We just want the first numeric part
-                             price_cleaned = ""
-                             for char in price_str:
-                                 if char.isdigit() or char == '.':
-                                     price_cleaned += char
-                                 else:
-                                     break # stop at first non-digit if we have started collecting
-                             
-                             if price_cleaned:
-                                 return float(price_cleaned)
-
-            print("Could not find 10g 22K price in BankBazaar page")
-            return self._fallback_price()
-
+                             return self._clean_price(price_cell)
+            return None
         except Exception as e:
-            print(f"Error fetching price: {e}")
-            return self._fallback_price()
+            print(f"Error fetching BankBazaar: {e}")
+            return None
+
+    def _clean_price(self, price_str):
+        if not price_str:
+            return None
+        clean = ""
+        for char in price_str:
+            if char.isdigit() or char == '.':
+                clean += char
+        return float(clean) if clean else None
 
     def _fallback_price(self):
         """
