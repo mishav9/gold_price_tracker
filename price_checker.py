@@ -60,19 +60,22 @@ class GoldPriceTrackerFixed:
                 return None
             
             soup = BeautifulSoup(response.content, 'html.parser')
-            
-            # Look for 22 Carat Gold section (containing H2 with "22 Carat" and "Hyderabad")
-            for section in soup.find_all('section'):
-                h2 = section.find('h2')
-                if h2 and "22 Carat" in h2.get_text() and "Hyderabad" in h2.get_text():
-                    table = section.find('table')
-                    if table:
-                        for row in table.find_all('tr'):
-                            cells = row.find_all('td')
-                            # Check for 10 grams row (first cell is '10')
-                            if len(cells) >= 2 and cells[0].get_text().strip() == '10':
-                                price_text = cells[1].get_text()
-                                return self._clean_price(price_text)
+
+            # The "Today Gold Price Per Gram" table has columns: Gram | 24K | 22K | 18K.
+            # Find the table by its header, locate the 22K column index, then read the
+            # row whose first cell is '10' (i.e. 10 grams). Reading the column by its
+            # header name keeps this resilient to future column reordering.
+            for table in soup.find_all('table'):
+                header_row = table.find('tr')
+                header_texts = [c.get_text(strip=True) for c in header_row.find_all(['th', 'td'])] if header_row else []
+                if '22K' not in header_texts or 'Gram' not in header_texts:
+                    continue
+
+                karat_col = header_texts.index('22K')
+                for row in table.find_all('tr'):
+                    cells = row.find_all('td')
+                    if len(cells) > karat_col and cells[0].get_text().strip() == '10':
+                        return self._clean_price(cells[karat_col].get_text())
             return None
         except Exception as e:
             print(f"Error fetching GoodReturns: {e}")

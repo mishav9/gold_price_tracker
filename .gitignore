@@ -1,1 +1,19 @@
 /.idea/
+*.iml
+
+# Python
+__pycache__/
+*.py[cod]
+
+# Local DB backups / artifacts
+*.bak
+gold_prices.db.*
+
+# Scraper debug dumps
+*.html
+
+# macOS
+.DS_Store
+
+# uv / venv
+.venv/
